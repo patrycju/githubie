@@ -21,6 +21,7 @@ import {
 } from "@/components/ui/alert-dialog"
 import { toast } from "@/components/ui/custom-toast"
 import { Toaster } from "@/components/ui/toaster"
+import { Button } from "@/components/ui/button"
 
 // Cache expiration time (24 hours in milliseconds)
 const CACHE_EXPIRATION = 24 * 60 * 60 * 1000
@@ -29,6 +30,7 @@ const REPOS_PER_PAGE = 10
 
 export default function Home() {
   const [apiKey, setApiKey] = useState<string>("")
+  const [noApiKey, setNoApiKey] = useState(false)
   const [collections, setCollections] = useState<Collection[]>([])
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null)
   const [repositories, setRepositories] = useState<Repository[]>([])
@@ -181,6 +183,12 @@ export default function Home() {
 
     // Load repositories for the imported collection
     loadRepositoriesForCollection(collection)
+    toast({
+      id: `import-${Date.now()}`,
+      title: "Collection Imported",
+      description: "The collection has been successfully imported.",
+      variant: "default"
+    })
   }
 
   const isCacheValid = (collectionId: number) => {
@@ -192,8 +200,6 @@ export default function Home() {
   }
 
   const loadRepositoriesForCollection = async (collection: Collection) => {
-    if (!apiKey) return
-
     // Reset pagination
     setPage(1)
     setHasMore(true)
@@ -228,7 +234,7 @@ export default function Home() {
         setProgressiveLoadingStatus(`Loading ${topic.name} (${i + 1}/${collection.topics.length})...`)
 
         try {
-          const repos = await fetchRepositoriesByTopic(apiKey, topic.name, minStars)
+          const repos = await fetchRepositoriesByTopic(apiKey || undefined, topic.name, minStars)
 
           // Process repositories as they come in
           for (const repo of repos) {
@@ -244,12 +250,31 @@ export default function Home() {
           }
         } catch (error) {
           console.error(`Error fetching repositories for topic ${topic.name}:`, error)
-          toast({
-            title: "Error",
-            description: `Failed to load repositories for topic: ${topic.name}`,
-            variant: "destructive",
-            className: "bg-red-50 border-red-200 dark:bg-red-900/50 dark:border-red-800",
-          })
+          if (error instanceof Error) {
+            if (error.message.includes('rate limit exceeded')) {
+              toast({
+                id: `rate-limit-${Date.now()}`,
+                title: "Rate Limit Exceeded",
+                description: error.message,
+                variant: "destructive"
+              })
+              break
+            } else if (error.message.includes('Consider adding a GitHub API key')) {
+              toast({
+                id: `api-key-recommended-${Date.now()}`,
+                title: "API Key Recommended",
+                description: "Adding a GitHub API key will provide better rate limits and reliability.",
+                variant: "default"
+              })
+            } else {
+              toast({
+                id: `error-${Date.now()}`,
+                title: "Error",
+                description: `Failed to load repositories for topic: ${topic.name}`,
+                variant: "destructive"
+              })
+            }
+          }
         }
       }
 
@@ -273,12 +298,14 @@ export default function Home() {
       setProgressiveLoadingStatus("")
     } catch (error) {
       console.error("Error fetching repositories:", error)
-      toast({
-        title: "Error",
-        description: "Failed to load repositories",
-        variant: "destructive",
-        className: "bg-red-50 border-red-200 dark:bg-red-900/50 dark:border-red-800",
-      })
+      if (error instanceof Error) {
+        toast({
+          id: `error-${Date.now()}`,
+          title: "Error",
+          description: error.message,
+          variant: "destructive"
+        })
+      }
     } finally {
       setIsLoading(false)
     }
@@ -342,26 +369,22 @@ export default function Home() {
   const handleToggleFavorite = (repoId: number) => {
     if (!selectedCollection) return
 
-    const collectionId = selectedCollection.id.toString()
-    const currentFavorites = collectionFavorites[collectionId] || []
+    const currentFavorites = collectionFavorites[selectedCollection.id] || []
 
-    // Check if the repository is already in favorites
-    const existingIndex = currentFavorites.findIndex((fav) => fav.id === repoId)
-
-    if (existingIndex >= 0) {
+    if (currentFavorites.some((repo) => repo.id === repoId)) {
       // Remove from favorites
-      const updatedFavorites = [...currentFavorites]
-      updatedFavorites.splice(existingIndex, 1)
+      const updatedFavorites = currentFavorites.filter((repo) => repo.id !== repoId)
 
       setCollectionFavorites({
         ...collectionFavorites,
-        [collectionId]: updatedFavorites,
+        [selectedCollection.id]: updatedFavorites,
       })
 
       toast({
+        id: `remove-favorite-${Date.now()}`,
         title: "Removed from favorites",
         description: "Repository removed from favorites",
-        className: "bg-purple-50 border-purple-200 dark:bg-purple-900/50 dark:border-purple-800",
+        variant: "default"
       })
     } else {
       // Find the repository in either current or seen repositories
@@ -371,13 +394,14 @@ export default function Home() {
         // Add to favorites
         setCollectionFavorites({
           ...collectionFavorites,
-          [collectionId]: [...currentFavorites, repo],
+          [selectedCollection.id]: [...currentFavorites, repo],
         })
 
         toast({
+          id: `add-favorite-${Date.now()}`,
           title: "Added to favorites",
           description: "Repository added to favorites",
-          className: "bg-purple-50 border-purple-200 dark:bg-purple-900/50 dark:border-purple-800",
+          variant: "default"
         })
       }
     }
@@ -389,9 +413,10 @@ export default function Home() {
     // Check if topic already exists in collection
     if (selectedCollection.topics.some((t) => t.name === topic)) {
       toast({
+        id: `topic-exists-${Date.now()}`,
         title: "Topic already exists",
         description: `The topic "${topic}" is already in this collection.`,
-        className: "bg-purple-50 border-purple-200 dark:bg-purple-900/50 dark:border-purple-800",
+        variant: "default"
       })
       return
     }
@@ -414,44 +439,42 @@ export default function Home() {
     setSelectedCollection(updatedCollection)
 
     toast({
+      id: `topic-added-${Date.now()}`,
       title: "Topic added",
       description: `Added "${topic}" to collection. Click Refresh to load repositories.`,
-      className: "bg-purple-50 border-purple-200 dark:bg-purple-900/50 dark:border-purple-800",
+      variant: "default"
     })
   }
 
-  const handleDeleteCollection = (id: number) => {
-    setCollectionToDelete(id)
+  const handleDeleteCollection = (collectionId: number) => {
+    setCollectionToDelete(collectionId)
   }
 
-  const confirmDeleteCollection = () => {
+  const handleConfirmDelete = () => {
     if (collectionToDelete === null) return
 
     const updatedCollections = collections.filter((c) => c.id !== collectionToDelete)
     setCollections(updatedCollections)
 
-    // If we deleted the selected collection, clear selection
+    // If the deleted collection was selected, select the first available collection or null
     if (selectedCollection?.id === collectionToDelete) {
-      setSelectedCollection(null)
-      setRepositories([])
-      setSeenRepositories([])
+      setSelectedCollection(updatedCollections[0] || null)
     }
 
-    // Remove from stored repositories
-    if (storedRepos[collectionToDelete]) {
-      const updatedStoredRepos = { ...storedRepos }
-      delete updatedStoredRepos[collectionToDelete]
-      setStoredRepos(updatedStoredRepos)
-    }
-
-    // Remove from collection favorites
-    if (collectionFavorites[collectionToDelete]) {
-      const updatedFavorites = { ...collectionFavorites }
-      delete updatedFavorites[collectionToDelete]
-      setCollectionFavorites(updatedFavorites)
-    }
+    // Remove from cache
+    setStoredRepos((prev) => {
+      const newStoredRepos = { ...prev }
+      delete newStoredRepos[collectionToDelete]
+      return newStoredRepos
+    })
 
     setCollectionToDelete(null)
+    toast({
+      id: `delete-${Date.now()}`,
+      title: "Collection Deleted",
+      description: "The collection has been successfully deleted.",
+      variant: "default"
+    })
   }
 
   const openCreateModal = () => {
@@ -464,10 +487,24 @@ export default function Home() {
     setIsModalOpen(true)
   }
 
-  const handleRefresh = () => {
-    if (selectedCollection) {
-      loadRepositoriesForCollection(selectedCollection)
-    }
+  const handleRefresh = async () => {
+    if (!selectedCollection) return
+
+    // Clear the cache for this collection
+    setStoredRepos((prev) => {
+      const newStoredRepos = { ...prev }
+      delete newStoredRepos[selectedCollection.id]
+      return newStoredRepos
+    })
+
+    // Reload repositories
+    await loadRepositoriesForCollection(selectedCollection)
+    toast({
+      id: `refresh-${Date.now()}`,
+      title: "Collection Refreshed",
+      description: "The collection has been refreshed with the latest data.",
+      variant: "default"
+    })
   }
 
   // Get current collection favorites
@@ -478,26 +515,38 @@ export default function Home() {
 
   return (
     <main className="min-h-screen bg-gray-50 dark:bg-gray-900 flex flex-col">
-      {apiKey ? (
-        <Navbar
-          collections={collections}
-          selectedCollection={selectedCollection}
-          onSelectCollection={handleSelectCollection}
-          onCreateCollection={openCreateModal}
-          onEditCollection={openEditModal}
-          onDeleteCollection={handleDeleteCollection}
-          onRefresh={handleRefresh}
-          onExportCollection={() => setIsExportModalOpen(true)}
-          onImportCollection={() => setIsImportModalOpen(true)}
-          isLoading={isLoading}
-        />
-      ) : null}
+      <Navbar
+        collections={collections}
+        selectedCollection={selectedCollection}
+        onSelectCollection={handleSelectCollection}
+        onCreateCollection={openCreateModal}
+        onEditCollection={openEditModal}
+        onDeleteCollection={handleDeleteCollection}
+        onRefresh={handleRefresh}
+        onExportCollection={() => setIsExportModalOpen(true)}
+        onImportCollection={() => setIsImportModalOpen(true)}
+        isLoading={isLoading}
+      />
 
       <div className="container mx-auto px-4 py-8 flex-grow">
-        {!apiKey ? (
+        {!apiKey && !noApiKey ? (
           <div className="max-w-md mx-auto">
             <h1 className="text-3xl font-bold mb-8 text-center text-purple-700 dark:text-purple-400">GitHubie</h1>
-            <GitHubApiKeyForm onSubmit={handleApiKeySubmit} />
+            <div className="space-y-4">
+              <p className="text-gray-600 dark:text-gray-300 text-center">
+                Add a GitHub API key for better rate limits and reliability, or continue without one.
+              </p>
+              <GitHubApiKeyForm onSubmit={handleApiKeySubmit} />
+              <div className="flex justify-center">
+                <Button
+                  onClick={() => setNoApiKey(true)}
+                  variant="outline"
+                  className="w-full"
+                >
+                  Continue without API key
+                </Button>
+              </div>
+            </div>
           </div>
         ) : (
           <div className="space-y-6">
@@ -568,7 +617,7 @@ export default function Home() {
                 Cancel
               </AlertDialogCancel>
               <AlertDialogAction
-                onClick={confirmDeleteCollection}
+                onClick={handleConfirmDelete}
                 className="bg-red-500 hover:bg-red-600 dark:bg-red-600 dark:hover:bg-red-700"
               >
                 Delete
