@@ -7,8 +7,7 @@
     "build": "next build",
     "start": "next start",
     "lint": "next lint",
-    "export": "next build && next export",
-    "deploy": "gh-pages -d out"
+    "deploy": "rm -rf out && npm run build && echo githubie.com > out/CNAME && gh-pages -d out"
   },
   "dependencies": {
     "@hookform/resolvers": "^3.9.1",

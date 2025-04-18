@@ -10,8 +10,8 @@ const nextConfig = {
     unoptimized: true,
   },
   output: 'export',
-  basePath: process.env.NODE_ENV === 'production' ? '/githubie' : '',
-  assetPrefix: process.env.NODE_ENV === 'production' ? '/githubie/' : '',
+  // basePath: process.env.NODE_ENV === 'production' ? '/githubie' : '',
+  // assetPrefix: process.env.NODE_ENV === 'production' ? '/githubie/' : '',
 }
 
 export default nextConfig
