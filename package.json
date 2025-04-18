@@ -1,6 +1,7 @@
 {
   "name": "githubienpm",
   "version": "0.1.0",
+  "homepage": "https://githubie.com",
   "private": true,
   "scripts": {
     "dev": "next dev",
