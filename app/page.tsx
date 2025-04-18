@@ -31,6 +31,7 @@ const REPOS_PER_PAGE = 10
 export default function Home() {
   const [apiKey, setApiKey] = useState<string>("")
   const [noApiKey, setNoApiKey] = useState(false)
+  const [showApiKeyForm, setShowApiKeyForm] = useState(false)
   const [collections, setCollections] = useState<Collection[]>([])
   const [selectedCollection, setSelectedCollection] = useState<Collection | null>(null)
   const [repositories, setRepositories] = useState<Repository[]>([])
@@ -526,6 +527,8 @@ export default function Home() {
         onExportCollection={() => setIsExportModalOpen(true)}
         onImportCollection={() => setIsImportModalOpen(true)}
         isLoading={isLoading}
+        onAddApiKey={() => setShowApiKeyForm(true)}
+        hasApiKey={!!apiKey}
       />
 
       <div className="container mx-auto px-4 py-8 flex-grow">
@@ -536,7 +539,10 @@ export default function Home() {
               <p className="text-gray-600 dark:text-gray-300 text-center">
                 Add a GitHub API key for better rate limits and reliability, or continue without one.
               </p>
-              <GitHubApiKeyForm onSubmit={handleApiKeySubmit} />
+              <GitHubApiKeyForm onSubmit={(key) => {
+                setApiKey(key)
+                setShowApiKeyForm(false)
+              }} />
               <div className="flex justify-center">
                 <Button
                   onClick={() => setNoApiKey(true)}
@@ -546,6 +552,25 @@ export default function Home() {
                   Continue without API key
                 </Button>
               </div>
+            </div>
+          </div>
+        ) : showApiKeyForm ? (
+          <div className="max-w-md mx-auto">
+            <div className="space-y-4">
+              <div className="flex justify-between items-center">
+                <h2 className="text-xl font-semibold text-gray-900 dark:text-white">Add GitHub API Key</h2>
+                <Button
+                  variant="ghost"
+                  size="sm"
+                  onClick={() => setShowApiKeyForm(false)}
+                >
+                  Cancel
+                </Button>
+              </div>
+              <GitHubApiKeyForm onSubmit={(key) => {
+                setApiKey(key)
+                setShowApiKeyForm(false)
+              }} />
             </div>
           </div>
         ) : (

@@ -16,6 +16,8 @@ interface NavbarProps {
   onRefresh: () => void
   onExportCollection: () => void
   onImportCollection: () => void
+  onAddApiKey: () => void
+  hasApiKey: boolean
   isLoading: boolean
 }
 
@@ -29,6 +31,8 @@ export function Navbar({
   onRefresh,
   onExportCollection,
   onImportCollection,
+  onAddApiKey,
+  hasApiKey,
   isLoading,
 }: NavbarProps) {
   return (
@@ -85,6 +89,18 @@ export function Navbar({
             <Download className="h-4 w-4 mr-2" />
             Import
           </Button>
+
+          {!hasApiKey && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onAddApiKey}
+              className="bg-white/10 text-white border-white/20 hover:bg-white/20 h-9"
+              title="Add GitHub API Key"
+            >
+              Add API Key
+            </Button>
+          )}
 
           <ThemeToggle />
           <Button
